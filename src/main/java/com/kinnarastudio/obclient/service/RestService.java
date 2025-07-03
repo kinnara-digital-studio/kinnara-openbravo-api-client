@@ -18,12 +18,15 @@ import org.json.JSONObject;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.net.ssl.SSLContext;
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.security.KeyManagementException;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.util.*;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 
 public class RestService {
     public final static Logger logger = Logger.getLogger(RestService.class.getName());
@@ -205,5 +208,25 @@ public class RestService {
         POST,
         PUT,
         DELETE,
+    }
+
+    public String getResponseBody(HttpResponse httpResponse) throws RestClientException {
+        try (BufferedReader br = new BufferedReader(new InputStreamReader(httpResponse.getEntity().getContent()))) {
+            final String responsePayload = br.lines().collect(Collectors.joining());
+            final int statusCode = getResponseStatus(httpResponse);
+            if (getStatusGroupCode(statusCode) != 200) {
+                throw new RestClientException("Response code [" + statusCode + "]");
+            } else if (statusCode != 200) {
+                logger.warning("Response code [" + statusCode + "] is considered as success");
+            }
+
+            if (!isJsonResponse(httpResponse)) {
+                throw new RestClientException("Content type is not JSON");
+            }
+
+            return responsePayload;
+        } catch (IOException e) {
+            throw new RestClientException(e);
+        }
     }
 }

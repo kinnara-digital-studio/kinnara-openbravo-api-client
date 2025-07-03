@@ -54,7 +54,7 @@ public class OpenbravoService {
         return instance;
     }
 
-    public Map<String, String> delete(@Nonnull String baseUrl, @Nonnull String tableEntity, @Nonnull String primaryKey, @Nonnull String username, @Nonnull String password) throws OpenbravoClientException {
+    public Map<String, Object> delete(@Nonnull String baseUrl, @Nonnull String tableEntity, @Nonnull String recordId, @Nonnull String username, @Nonnull String password) throws OpenbravoClientException {
         try {
             final RestService restService = RestService.getInstance();
             restService.setIgnoreCertificate(ignoreCertificateError);
@@ -64,7 +64,7 @@ public class OpenbravoService {
                     .append("/org.openbravo.service.json.jsonrest/")
                     .append(tableEntity)
                     .append("/")
-                    .append(primaryKey);
+                    .append(recordId);
 
             if (noFilterActive) {
                 addUrlParameter(url, "_noActiveFilter", "true");
@@ -113,7 +113,7 @@ public class OpenbravoService {
 
 
     @Nonnull
-    public Map<String, String> get(@Nonnull String baseUrl, @Nonnull String tableEntity, @Nonnull String username, @Nonnull String password, @Nonnull String primaryKey) throws OpenbravoClientException {
+    public Map<String, Object> get(@Nonnull String baseUrl, @Nonnull String tableEntity, @Nonnull String username, @Nonnull String password, @Nonnull String recordId) throws OpenbravoClientException {
         try {
             final RestService restService = RestService.getInstance();
             restService.setIgnoreCertificate(ignoreCertificateError);
@@ -123,7 +123,7 @@ public class OpenbravoService {
                     .append("/org.openbravo.service.json.jsonrest/")
                     .append(tableEntity)
                     .append("/")
-                    .append(primaryKey);
+                    .append(recordId);
 
             if (noFilterActive) {
                 addUrlParameter(url, "_noActiveFilter", "true");

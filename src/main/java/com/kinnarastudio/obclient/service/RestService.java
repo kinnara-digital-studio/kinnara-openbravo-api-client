@@ -22,9 +22,7 @@ import java.io.IOException;
 import java.security.KeyManagementException;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
-import java.util.Base64;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.logging.Logger;
 
 public class RestService {
@@ -93,6 +91,16 @@ public class RestService {
         return status - (status % 100);
     }
 
+    public HttpResponse doGet(@Nonnull String url, String username, String password) throws RestClientException {
+        try {
+            final Map<String, String> headers = Collections.singletonMap("Authorization", getBasicAuthenticationHeader(username, password));
+            final HttpUriRequest request = getHttpRequest(url, Method.GET, headers, null);
+            return client.execute(request);
+        } catch (IOException e) {
+            throw new RestClientException(e);
+        }
+    }
+
     public HttpResponse doGet(@Nonnull String url, @Nonnull Map<String, String> headers) throws RestClientException {
         try {
             final HttpUriRequest request = getHttpRequest(url, Method.GET, headers, null);
@@ -102,9 +110,29 @@ public class RestService {
         }
     }
 
+    public HttpResponse doPost(@Nonnull String url, String username, String password, @Nullable JSONObject bodyPayload) throws RestClientException {
+        try {
+            final Map<String, String> headers = Collections.singletonMap("Authorization", getBasicAuthenticationHeader(username, password));
+            final HttpUriRequest request = getHttpRequest(url, Method.POST, headers, bodyPayload);
+            return client.execute(request);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     public HttpResponse doPost(@Nonnull String url, @Nonnull Map<String, String> headers, @Nullable JSONObject bodyPayload) throws RestClientException {
         try {
             final HttpUriRequest request = getHttpRequest(url, Method.POST, headers, bodyPayload);
+            return client.execute(request);
+        } catch (IOException e) {
+            throw new RestClientException(e);
+        }
+    }
+
+    public HttpResponse doDelete(@Nonnull String url, String username, String password) throws RestClientException {
+        try {
+            final Map<String, String> headers = Collections.singletonMap("Authorization", getBasicAuthenticationHeader(username, password));
+            final HttpUriRequest request = getHttpRequest(url, Method.DELETE, headers, null);
             return client.execute(request);
         } catch (IOException e) {
             throw new RestClientException(e);

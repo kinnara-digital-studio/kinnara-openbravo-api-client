@@ -10,6 +10,7 @@ import com.kinnarastudio.obclient.exceptions.OpenbravoClientException;
 import com.kinnarastudio.obclient.exceptions.OpenbravoCreateRecordException;
 import com.kinnarastudio.obclient.exceptions.RestClientException;
 import org.apache.http.HttpResponse;
+import org.apache.http.client.methods.CloseableHttpResponse;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -30,15 +31,13 @@ import java.util.stream.Collectors;
 
 public class OpenbravoService {
     public final static DateFormat DF = new SimpleDateFormat("yyyy-MM-dd");
-
+    public final static Logger logger = Logger.getLogger(OpenbravoService.class.getName());
     private static OpenbravoService instance = null;
     Exception cutCircuitCause = null;
     private boolean ignoreCertificateError = false;
     private boolean shortCircuit = false;
     private boolean noFilterActive = false;
     private boolean cutCircuit = false;
-
-    public final static Logger logger = Logger.getLogger(OpenbravoService.class.getName());
 
     private OpenbravoService() {
     }
@@ -55,8 +54,8 @@ public class OpenbravoService {
     }
 
     public Map<String, Object> delete(@Nonnull String baseUrl, @Nonnull String tableEntity, @Nonnull String recordId, @Nonnull String username, @Nonnull String password) throws OpenbravoClientException {
-        try {
-            final RestService restService = RestService.getInstance();
+        try(RestService restService = RestService.getInstance()) {
+
             restService.setIgnoreCertificate(ignoreCertificateError);
 
             final StringBuilder url = new StringBuilder()
@@ -71,34 +70,35 @@ public class OpenbravoService {
             }
 
             final Map<String, String> headers = Collections.singletonMap("Authorization", restService.getBasicAuthenticationHeader(username, password));
-            final HttpResponse response = restService.doDelete(url.toString(), headers);
+            try (CloseableHttpResponse response = restService.doDelete(url.toString(), headers)) {
 
-            final int statusCode = restService.getResponseStatus(response);
-            if (restService.getStatusGroupCode(statusCode) != 200) {
-                throw new RestClientException("Response code [" + statusCode + "] is not 200 (Success) url [" + url + "]");
-            } else if (statusCode != 200) {
-                logger.warning("Response code [" + statusCode + "] is considered as success");
-            }
-
-            if (!restService.isJsonResponse(response)) {
-                throw new RestClientException("Content type is not JSON");
-            }
-
-            try (BufferedReader br = new BufferedReader(new InputStreamReader(response.getEntity().getContent()))) {
-                final String responsePayload = br.lines().collect(Collectors.joining());
-
-                final JSONObject jsonResponse = new JSONObject(responsePayload)
-                        .getJSONObject("response");
-
-
-                final int status = jsonResponse.optInt("status", -1);
-                if (status != 0) {
-                    throw new OpenbravoClientException(responsePayload);
+                final int statusCode = restService.getResponseStatus(response);
+                if (restService.getStatusGroupCode(statusCode) != 200) {
+                    throw new RestClientException("Response code [" + statusCode + "] is not 200 (Success) url [" + url + "]");
+                } else if (statusCode != 200) {
+                    logger.warning("Response code [" + statusCode + "] is considered as success");
                 }
 
-                final JSONObject jsonData = jsonResponse.getJSONObject("data");
-                return JSONStream.of(jsonData, Try.onBiFunction(JSONObject::getString))
-                        .collect(Collectors.toUnmodifiableMap(JSONObjectEntry::getKey, JSONObjectEntry::getValue));
+                if (!restService.isJsonResponse(response)) {
+                    throw new RestClientException("Content type is not JSON");
+                }
+
+                try (BufferedReader br = new BufferedReader(new InputStreamReader(response.getEntity().getContent()))) {
+                    final String responsePayload = br.lines().collect(Collectors.joining());
+
+                    final JSONObject jsonResponse = new JSONObject(responsePayload)
+                            .getJSONObject("response");
+
+
+                    final int status = jsonResponse.optInt("status", -1);
+                    if (status != 0) {
+                        throw new OpenbravoClientException(responsePayload);
+                    }
+
+                    final JSONObject jsonData = jsonResponse.getJSONObject("data");
+                    return JSONStream.of(jsonData, Try.onBiFunction(JSONObject::getString))
+                            .collect(Collectors.toUnmodifiableMap(JSONObjectEntry::getKey, JSONObjectEntry::getValue));
+                }
             }
         } catch (RestClientException | JSONException | IOException e) {
             throw new OpenbravoClientException(e);
@@ -114,8 +114,8 @@ public class OpenbravoService {
 
     @Nonnull
     public Map<String, Object> get(@Nonnull String baseUrl, @Nonnull String tableEntity, @Nonnull String username, @Nonnull String password, @Nonnull String recordId) throws OpenbravoClientException {
-        try {
-            final RestService restService = RestService.getInstance();
+        try(RestService restService = RestService.getInstance()) {
+
             restService.setIgnoreCertificate(ignoreCertificateError);
 
             final StringBuilder url = new StringBuilder()
@@ -130,34 +130,35 @@ public class OpenbravoService {
             }
 
             final Map<String, String> headers = Collections.singletonMap("Authorization", restService.getBasicAuthenticationHeader(username, password));
-            final HttpResponse response = restService.doGet(url.toString(), headers);
+            try(CloseableHttpResponse response = restService.doGet(url.toString(), headers)) {
 
-            final int statusCode = restService.getResponseStatus(response);
-            if (restService.getStatusGroupCode(statusCode) != 200) {
-                throw new RestClientException("Response code [" + statusCode + "] is not 200 (Success) url [" + url + "]");
-            } else if (statusCode != 200) {
-                logger.warning("Response code [" + statusCode + "] is considered as success");
-            }
-
-            if (!restService.isJsonResponse(response)) {
-                throw new RestClientException("Content type is not JSON");
-            }
-
-            try (BufferedReader br = new BufferedReader(new InputStreamReader(response.getEntity().getContent()))) {
-                final String responsePayload = br.lines().collect(Collectors.joining());
-
-                final JSONObject jsonResponse = new JSONObject(responsePayload)
-                        .getJSONObject("response");
-
-
-                final int status = jsonResponse.optInt("status", -1);
-                if (status != 0) {
-                    throw new OpenbravoClientException(responsePayload);
+                final int statusCode = restService.getResponseStatus(response);
+                if (restService.getStatusGroupCode(statusCode) != 200) {
+                    throw new RestClientException("Response code [" + statusCode + "] is not 200 (Success) url [" + url + "]");
+                } else if (statusCode != 200) {
+                    logger.warning("Response code [" + statusCode + "] is considered as success");
                 }
 
-                final JSONObject jsonData = jsonResponse.getJSONObject("data");
-                return JSONStream.of(jsonData, Try.onBiFunction(JSONObject::getString))
-                        .collect(Collectors.toUnmodifiableMap(JSONObjectEntry::getKey, JSONObjectEntry::getValue));
+                if (!restService.isJsonResponse(response)) {
+                    throw new RestClientException("Content type is not JSON");
+                }
+
+                try (BufferedReader br = new BufferedReader(new InputStreamReader(response.getEntity().getContent()))) {
+                    final String responsePayload = br.lines().collect(Collectors.joining());
+
+                    final JSONObject jsonResponse = new JSONObject(responsePayload)
+                            .getJSONObject("response");
+
+
+                    final int status = jsonResponse.optInt("status", -1);
+                    if (status != 0) {
+                        throw new OpenbravoClientException(responsePayload);
+                    }
+
+                    final JSONObject jsonData = jsonResponse.getJSONObject("data");
+                    return JSONStream.of(jsonData, Try.onBiFunction(JSONObject::getString))
+                            .collect(Collectors.toUnmodifiableMap(JSONObjectEntry::getKey, JSONObjectEntry::getValue));
+                }
             }
         } catch (RestClientException | JSONException | IOException e) {
             throw new OpenbravoClientException(e);
@@ -246,8 +247,8 @@ public class OpenbravoService {
     public Map<String, Object>[] get(@Nonnull String baseUrl, @Nonnull String tableEntity, @Nonnull String username, @Nonnull String password, @Nullable String[] fields, @Nullable String condition, Object[] arguments, @Nullable String sort, @Nullable Boolean desc, @Nullable Integer startRow, @Nullable Integer endRow) throws OpenbravoClientException {
         logger.info("get : baseUrl [" + baseUrl + "] tableEntity [" + tableEntity + "] username [" + username + "]");
 
-        try {
-            final RestService restService = RestService.getInstance();
+        try(RestService restService = RestService.getInstance()) {
+
             restService.setIgnoreCertificate(ignoreCertificateError);
 
             final StringBuilder url = new StringBuilder()
@@ -284,35 +285,36 @@ public class OpenbravoService {
             }
 
             final Map<String, String> headers = Collections.singletonMap("Authorization", restService.getBasicAuthenticationHeader(username, password));
-            final HttpResponse response = restService.doGet(url.toString(), headers);
+            try(CloseableHttpResponse response = restService.doGet(url.toString(), headers)) {
 
-            try (BufferedReader br = new BufferedReader(new InputStreamReader(response.getEntity().getContent()))) {
-                final String responsePayload = br.lines().collect(Collectors.joining());
+                try (BufferedReader br = new BufferedReader(new InputStreamReader(response.getEntity().getContent()))) {
+                    final String responsePayload = br.lines().collect(Collectors.joining());
 
-                final int statusCode = restService.getResponseStatus(response);
-                if (restService.getStatusGroupCode(statusCode) != 200) {
-                    throw new RestClientException("Response code [" + statusCode + "] is not 200 (Success) url [" + url + "]");
-                } else if (statusCode != 200) {
-                    logger.warning("Response code [" + statusCode + "] is considered as success");
+                    final int statusCode = restService.getResponseStatus(response);
+                    if (restService.getStatusGroupCode(statusCode) != 200) {
+                        throw new RestClientException("Response code [" + statusCode + "] is not 200 (Success) url [" + url + "]");
+                    } else if (statusCode != 200) {
+                        logger.warning("Response code [" + statusCode + "] is considered as success");
+                    }
+
+                    if (!restService.isJsonResponse(response)) {
+                        throw new RestClientException("Content type is not JSON");
+                    }
+
+                    final JSONObject jsonResponse = new JSONObject(responsePayload)
+                            .getJSONObject("response");
+
+                    final int status = jsonResponse.optInt("status", -1);
+                    if (status != 0) {
+                        throw new OpenbravoClientException(responsePayload);
+                    }
+
+                    final JSONArray jsonData = jsonResponse.getJSONArray("data");
+                    return JSONStream.of(jsonData, Try.onBiFunction(JSONArray::getJSONObject))
+                            .map(json -> JSONStream.of(json, Try.onBiFunction(JSONObject::get))
+                                    .collect(Collectors.toMap(JSONObjectEntry::getKey, JSONObjectEntry::getValue)))
+                            .toArray(Map[]::new);
                 }
-
-                if (!restService.isJsonResponse(response)) {
-                    throw new RestClientException("Content type is not JSON");
-                }
-
-                final JSONObject jsonResponse = new JSONObject(responsePayload)
-                        .getJSONObject("response");
-
-                final int status = jsonResponse.optInt("status", -1);
-                if (status != 0) {
-                    throw new OpenbravoClientException(responsePayload);
-                }
-
-                final JSONArray jsonData = jsonResponse.getJSONArray("data");
-                return JSONStream.of(jsonData, Try.onBiFunction(JSONArray::getJSONObject))
-                        .map(json -> JSONStream.of(json, Try.onBiFunction(JSONObject::get))
-                                .collect(Collectors.toMap(JSONObjectEntry::getKey, JSONObjectEntry::getValue)))
-                        .toArray(Map[]::new);
             }
         } catch (RestClientException | JSONException | IOException e) {
             throw new OpenbravoClientException(e);
@@ -354,8 +356,8 @@ public class OpenbravoService {
     }
 
     public synchronized Map<String, Object>[] post(@Nonnull String baseUrl, @Nonnull String tableEntity, @Nonnull String username, @Nonnull String password, @Nonnull Map<String, Object>[] rows) throws OpenbravoClientException {
-        try {
-            final RestService restService = RestService.getInstance();
+        try (RestService restService = RestService.getInstance()) {
+
             restService.setIgnoreCertificate(ignoreCertificateError);
 
             final StringBuilder url = new StringBuilder().append(baseUrl).append("/org.openbravo.service.json.jsonrest/").append(tableEntity);
@@ -373,46 +375,47 @@ public class OpenbravoService {
                                         .collect(JSONCollectors.toJSONObject(Map.Entry::getKey, Map.Entry::getValue)));
                             }};
 
-                            final HttpResponse response = restService.doPost(url.toString(), headers, jsonBody);
+                            try (CloseableHttpResponse response = restService.doPost(url.toString(), headers, jsonBody)) {
 
-                            final int statusCode = restService.getResponseStatus(response);
-                            if (restService.getStatusGroupCode(statusCode) != 200) {
-                                throw new RestClientException("Response code [" + statusCode + "] is not 200 (Success) url [" + url + "]");
-                            } else if (statusCode != 200) {
-                                logger.warning("Response code [" + statusCode + "] is considered as success");
-                            }
-
-                            if (!restService.isJsonResponse(response)) {
-                                throw new RestClientException("Content type is not JSON");
-                            }
-
-                            try (BufferedReader br = new BufferedReader(new InputStreamReader(response.getEntity().getContent()))) {
-                                final String responsePayload = br.lines().collect(Collectors.joining());
-                                final JSONObject jsonResponse = new JSONObject(responsePayload)
-                                        .getJSONObject("response");
-
-                                final int status = jsonResponse.getInt("status");
-                                if (status != 0) {
-                                    if (status == -4) {
-                                        final JSONObject jsonErrors = jsonResponse.getJSONObject("errors");
-                                        final Map<String, String> errors = JSONStream.of(jsonErrors, Try.onBiFunction(JSONObject::getString))
-                                                .collect(Collectors.toUnmodifiableMap(JSONObjectEntry::getKey, JSONObjectEntry::getValue));
-                                        throw new OpenbravoCreateRecordException(errors);
-                                    } else if (status == -1) {
-                                        throw new OpenbravoClientException(jsonResponse.getJSONObject("error").getString("message"));
-                                    } else {
-                                        throw new OpenbravoClientException(responsePayload);
-                                    }
+                                final int statusCode = restService.getResponseStatus(response);
+                                if (restService.getStatusGroupCode(statusCode) != 200) {
+                                    throw new RestClientException("Response code [" + statusCode + "] is not 200 (Success) url [" + url + "]");
+                                } else if (statusCode != 200) {
+                                    logger.warning("Response code [" + statusCode + "] is considered as success");
                                 }
 
-                                final JSONArray jsonData = jsonResponse.getJSONArray("data");
-                                final Map<String, Object> data = JSONStream.of(jsonData, Try.onBiFunction(JSONArray::getJSONObject))
-                                        .findFirst()
-                                        .stream()
-                                        .flatMap(json -> JSONStream.of(json, Try.onBiFunction(JSONObject::get)))
-                                        .collect(Collectors.toUnmodifiableMap(JSONObjectEntry::getKey, JSONObjectEntry::getValue));
+                                if (!restService.isJsonResponse(response)) {
+                                    throw new RestClientException("Content type is not JSON");
+                                }
 
-                                return data;
+                                try (BufferedReader br = new BufferedReader(new InputStreamReader(response.getEntity().getContent()))) {
+                                    final String responsePayload = br.lines().collect(Collectors.joining());
+                                    final JSONObject jsonResponse = new JSONObject(responsePayload)
+                                            .getJSONObject("response");
+
+                                    final int status = jsonResponse.getInt("status");
+                                    if (status != 0) {
+                                        if (status == -4) {
+                                            final JSONObject jsonErrors = jsonResponse.getJSONObject("errors");
+                                            final Map<String, String> errors = JSONStream.of(jsonErrors, Try.onBiFunction(JSONObject::getString))
+                                                    .collect(Collectors.toUnmodifiableMap(JSONObjectEntry::getKey, JSONObjectEntry::getValue));
+                                            throw new OpenbravoCreateRecordException(errors);
+                                        } else if (status == -1) {
+                                            throw new OpenbravoClientException(jsonResponse.getJSONObject("error").getString("message"));
+                                        } else {
+                                            throw new OpenbravoClientException(responsePayload);
+                                        }
+                                    }
+
+                                    final JSONArray jsonData = jsonResponse.getJSONArray("data");
+                                    final Map<String, Object> data = JSONStream.of(jsonData, Try.onBiFunction(JSONArray::getJSONObject))
+                                            .findFirst()
+                                            .stream()
+                                            .flatMap(json -> JSONStream.of(json, Try.onBiFunction(JSONObject::get)))
+                                            .collect(Collectors.toUnmodifiableMap(JSONObjectEntry::getKey, JSONObjectEntry::getValue));
+
+                                    return data;
+                                }
                             }
                         } catch (OpenbravoClientException | RestClientException | IOException | JSONException |
                                  OpenbravoCreateRecordException e) {
@@ -441,7 +444,7 @@ public class OpenbravoService {
                 throw new OpenbravoClientException("Request length [" + rows.length + "] and response length [" + result.length + "] are different");
 
             return (Map<String, Object>[]) result;
-        } catch (RestClientException e) {
+        } catch (RestClientException | IOException e) {
             throw new OpenbravoClientException(e);
         }
     }

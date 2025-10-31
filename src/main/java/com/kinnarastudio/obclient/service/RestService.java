@@ -10,6 +10,7 @@ import org.apache.http.client.methods.*;
 import org.apache.http.conn.ssl.NoopHostnameVerifier;
 import org.apache.http.entity.ContentType;
 import org.apache.http.entity.StringEntity;
+import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.ssl.SSLContextBuilder;
@@ -19,6 +20,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.net.ssl.SSLContext;
 import java.io.BufferedReader;
+import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.security.KeyManagementException;
@@ -28,7 +30,12 @@ import java.util.*;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
-public class RestService {
+/**
+ * @since 2025-10-31
+ * @author aristo
+ * Set class as {@link Closeable}
+ */
+public class RestService implements Closeable {
     public final static Logger logger = Logger.getLogger(RestService.class.getName());
 
     private static RestService instance = null;
@@ -37,7 +44,7 @@ public class RestService {
 
     private boolean ignoreCertificate = false;
 
-    private final HttpClient client;
+    private final CloseableHttpClient client;
 
     private RestService() throws RestClientException {
         this.client = getHttpClient();
@@ -48,7 +55,7 @@ public class RestService {
         return instance;
     }
 
-    protected HttpClient getHttpClient() throws RestClientException {
+    protected CloseableHttpClient getHttpClient() throws RestClientException {
         try {
             if (ignoreCertificate) {
                 SSLContext sslContext = new SSLContextBuilder()
@@ -94,7 +101,7 @@ public class RestService {
         return status - (status % 100);
     }
 
-    public HttpResponse doGet(@Nonnull String url, String username, String password) throws RestClientException {
+    public CloseableHttpResponse doGet(@Nonnull String url, String username, String password) throws RestClientException {
         try {
             final Map<String, String> headers = Collections.singletonMap("Authorization", getBasicAuthenticationHeader(username, password));
             final HttpUriRequest request = getHttpRequest(url, Method.GET, headers, null);
@@ -104,7 +111,7 @@ public class RestService {
         }
     }
 
-    public HttpResponse doGet(@Nonnull String url, @Nonnull Map<String, String> headers) throws RestClientException {
+    public CloseableHttpResponse doGet(@Nonnull String url, @Nonnull Map<String, String> headers) throws RestClientException {
         try {
             final HttpUriRequest request = getHttpRequest(url, Method.GET, headers, null);
             return client.execute(request);
@@ -113,7 +120,7 @@ public class RestService {
         }
     }
 
-    public HttpResponse doPost(@Nonnull String url, String username, String password, @Nullable JSONObject bodyPayload) throws RestClientException {
+    public CloseableHttpResponse doPost(@Nonnull String url, String username, String password, @Nullable JSONObject bodyPayload) throws RestClientException {
         try {
             final Map<String, String> headers = Collections.singletonMap("Authorization", getBasicAuthenticationHeader(username, password));
             final HttpUriRequest request = getHttpRequest(url, Method.POST, headers, bodyPayload);
@@ -123,7 +130,7 @@ public class RestService {
         }
     }
 
-    public HttpResponse doPost(@Nonnull String url, @Nonnull Map<String, String> headers, @Nullable JSONObject bodyPayload) throws RestClientException {
+    public CloseableHttpResponse doPost(@Nonnull String url, @Nonnull Map<String, String> headers, @Nullable JSONObject bodyPayload) throws RestClientException {
         try {
             final HttpUriRequest request = getHttpRequest(url, Method.POST, headers, bodyPayload);
             return client.execute(request);
@@ -132,7 +139,7 @@ public class RestService {
         }
     }
 
-    public HttpResponse doDelete(@Nonnull String url, String username, String password) throws RestClientException {
+    public CloseableHttpResponse doDelete(@Nonnull String url, String username, String password) throws RestClientException {
         try {
             final Map<String, String> headers = Collections.singletonMap("Authorization", getBasicAuthenticationHeader(username, password));
             final HttpUriRequest request = getHttpRequest(url, Method.DELETE, headers, null);
@@ -142,7 +149,7 @@ public class RestService {
         }
     }
 
-    public HttpResponse doDelete(@Nonnull String url, @Nonnull Map<String, String> headers) throws RestClientException {
+    public CloseableHttpResponse doDelete(@Nonnull String url, @Nonnull Map<String, String> headers) throws RestClientException {
         try {
             final HttpUriRequest request = getHttpRequest(url, Method.DELETE, headers, null);
             return client.execute(request);
@@ -201,6 +208,12 @@ public class RestService {
 
     public void setDebug(boolean debug) {
         isDebug = debug;
+    }
+
+    @Override
+    public void close() throws IOException {
+        client.close();
+        instance = null;
     }
 
     public enum Method {

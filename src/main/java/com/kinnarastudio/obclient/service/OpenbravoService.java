@@ -9,7 +9,6 @@ import com.kinnarastudio.obclient.annotation.ObField;
 import com.kinnarastudio.obclient.exceptions.OpenbravoClientException;
 import com.kinnarastudio.obclient.exceptions.OpenbravoCreateRecordException;
 import com.kinnarastudio.obclient.exceptions.RestClientException;
-import org.apache.http.HttpResponse;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -24,6 +23,7 @@ import java.net.URLEncoder;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -54,7 +54,7 @@ public class OpenbravoService {
     }
 
     public Map<String, Object> delete(@Nonnull String baseUrl, @Nonnull String tableEntity, @Nonnull String recordId, @Nonnull String username, @Nonnull String password) throws OpenbravoClientException {
-        try(RestService restService = RestService.getInstance()) {
+        try (RestService restService = RestService.getInstance()) {
 
             restService.setIgnoreCertificate(ignoreCertificateError);
 
@@ -114,7 +114,7 @@ public class OpenbravoService {
 
     @Nonnull
     public Map<String, Object> get(@Nonnull String baseUrl, @Nonnull String tableEntity, @Nonnull String username, @Nonnull String password, @Nonnull String recordId) throws OpenbravoClientException {
-        try(RestService restService = RestService.getInstance()) {
+        try (RestService restService = RestService.getInstance()) {
 
             restService.setIgnoreCertificate(ignoreCertificateError);
 
@@ -130,7 +130,7 @@ public class OpenbravoService {
             }
 
             final Map<String, String> headers = Collections.singletonMap("Authorization", restService.getBasicAuthenticationHeader(username, password));
-            try(CloseableHttpResponse response = restService.doGet(url.toString(), headers)) {
+            try (CloseableHttpResponse response = restService.doGet(url.toString(), headers)) {
 
                 final int statusCode = restService.getResponseStatus(response);
                 if (restService.getStatusGroupCode(statusCode) != 200) {
@@ -219,6 +219,8 @@ public class OpenbravoService {
                                     try {
                                         clazz.getDeclaredMethod(setterName, value.getClass()).invoke(instance, value);
                                     } catch (NoSuchMethodException e) {
+                                        logger.log(Level.SEVERE, e.getMessage(), e);
+                                        logger.log(Level.WARNING, "Trying to call pass value [" + value + "] as [" + String.class.getName() + "] instead of [" + value.getClass().getName() + "]");
                                         clazz.getDeclaredMethod(setterName, String.class).invoke(instance, String.valueOf(value));
                                     }
                                 }));
@@ -247,7 +249,7 @@ public class OpenbravoService {
     public Map<String, Object>[] get(@Nonnull String baseUrl, @Nonnull String tableEntity, @Nonnull String username, @Nonnull String password, @Nullable String[] fields, @Nullable String condition, Object[] arguments, @Nullable String sort, @Nullable Boolean desc, @Nullable Integer startRow, @Nullable Integer endRow) throws OpenbravoClientException {
         logger.info("get : baseUrl [" + baseUrl + "] tableEntity [" + tableEntity + "] username [" + username + "]");
 
-        try(RestService restService = RestService.getInstance()) {
+        try (RestService restService = RestService.getInstance()) {
 
             restService.setIgnoreCertificate(ignoreCertificateError);
 
@@ -285,7 +287,7 @@ public class OpenbravoService {
             }
 
             final Map<String, String> headers = Collections.singletonMap("Authorization", restService.getBasicAuthenticationHeader(username, password));
-            try(CloseableHttpResponse response = restService.doGet(url.toString(), headers)) {
+            try (CloseableHttpResponse response = restService.doGet(url.toString(), headers)) {
 
                 try (BufferedReader br = new BufferedReader(new InputStreamReader(response.getEntity().getContent()))) {
                     final String responsePayload = br.lines().collect(Collectors.joining());

@@ -5,7 +5,6 @@ import org.apache.http.Header;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
 import org.apache.http.StatusLine;
-import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.*;
 import org.apache.http.conn.ssl.NoopHostnameVerifier;
 import org.apache.http.entity.ContentType;
@@ -38,21 +37,14 @@ import java.util.stream.Collectors;
 public class RestService implements Closeable {
     public final static Logger logger = Logger.getLogger(RestService.class.getName());
 
-    private static RestService instance = null;
-
     private boolean isDebug = false;
 
     private boolean ignoreCertificate = false;
 
     private final CloseableHttpClient client;
 
-    private RestService() throws RestClientException {
+    public RestService() throws RestClientException {
         this.client = getHttpClient();
-    }
-
-    public static synchronized RestService getInstance() throws RestClientException {
-        if (instance == null) instance = new RestService();
-        return instance;
     }
 
     protected CloseableHttpClient getHttpClient() throws RestClientException {
@@ -102,13 +94,8 @@ public class RestService implements Closeable {
     }
 
     public CloseableHttpResponse doGet(@Nonnull String url, String username, String password) throws RestClientException {
-        try {
-            final Map<String, String> headers = Collections.singletonMap("Authorization", getBasicAuthenticationHeader(username, password));
-            final HttpUriRequest request = getHttpRequest(url, Method.GET, headers, null);
-            return client.execute(request);
-        } catch (IOException e) {
-            throw new RestClientException(e);
-        }
+        final Map<String, String> headers = Collections.singletonMap("Authorization", getBasicAuthenticationHeader(username, password));
+        return doGet(url, headers);
     }
 
     public CloseableHttpResponse doGet(@Nonnull String url, @Nonnull Map<String, String> headers) throws RestClientException {
@@ -121,13 +108,8 @@ public class RestService implements Closeable {
     }
 
     public CloseableHttpResponse doPost(@Nonnull String url, String username, String password, @Nullable JSONObject bodyPayload) throws RestClientException {
-        try {
-            final Map<String, String> headers = Collections.singletonMap("Authorization", getBasicAuthenticationHeader(username, password));
-            final HttpUriRequest request = getHttpRequest(url, Method.POST, headers, bodyPayload);
-            return client.execute(request);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
+        final Map<String, String> headers = Collections.singletonMap("Authorization", getBasicAuthenticationHeader(username, password));
+        return doPost(url, headers, bodyPayload);
     }
 
     public CloseableHttpResponse doPost(@Nonnull String url, @Nonnull Map<String, String> headers, @Nullable JSONObject bodyPayload) throws RestClientException {
@@ -140,13 +122,8 @@ public class RestService implements Closeable {
     }
 
     public CloseableHttpResponse doDelete(@Nonnull String url, String username, String password) throws RestClientException {
-        try {
-            final Map<String, String> headers = Collections.singletonMap("Authorization", getBasicAuthenticationHeader(username, password));
-            final HttpUriRequest request = getHttpRequest(url, Method.DELETE, headers, null);
-            return client.execute(request);
-        } catch (IOException e) {
-            throw new RestClientException(e);
-        }
+        final Map<String, String> headers = Collections.singletonMap("Authorization", getBasicAuthenticationHeader(username, password));
+        return doDelete(url, headers);
     }
 
     public CloseableHttpResponse doDelete(@Nonnull String url, @Nonnull Map<String, String> headers) throws RestClientException {
@@ -213,7 +190,6 @@ public class RestService implements Closeable {
     @Override
     public void close() throws IOException {
         client.close();
-        instance = null;
     }
 
     public enum Method {

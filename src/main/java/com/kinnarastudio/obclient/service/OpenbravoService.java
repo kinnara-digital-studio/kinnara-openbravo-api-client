@@ -32,29 +32,38 @@ import java.util.stream.Collectors;
 public class OpenbravoService {
     public final static DateFormat DF = new SimpleDateFormat("yyyy-MM-dd");
     public final static Logger logger = Logger.getLogger(OpenbravoService.class.getName());
-    private static OpenbravoService instance = null;
+    private final String username;
+    private final String password;
+    private final String baseUrl;
+    private final boolean ignoreCertificateError;
+    private final boolean shortCircuit;
     Exception cutCircuitCause = null;
-    private boolean ignoreCertificateError = false;
-    private boolean shortCircuit = false;
-    private boolean noFilterActive = false;
-    private boolean cutCircuit = false;
+    private boolean cutCircuit;
 
-    private OpenbravoService() {
+    public OpenbravoService(String baseUrl, String username, String password) {
+        this.baseUrl = baseUrl;
+        this.username = username;
+        this.password = password;
+        this.shortCircuit = false;
+        this.cutCircuit = false;
+        this.ignoreCertificateError = false;
     }
 
-    public static synchronized OpenbravoService getInstance() {
-        if (instance == null) instance = new OpenbravoService();
-
-        instance.shortCircuit = false;
-        instance.cutCircuit = false;
-        instance.ignoreCertificateError = false;
-        instance.noFilterActive = false;
-
-        return instance;
+    public OpenbravoService(String baseUrl, String username, String password, boolean ignoreCertificateError, boolean shortCircuit) {
+        this.baseUrl = baseUrl;
+        this.username = username;
+        this.password = password;
+        this.shortCircuit = shortCircuit;
+        this.cutCircuit = false;
+        this.ignoreCertificateError = ignoreCertificateError;
     }
 
-    public Map<String, Object> delete(@Nonnull String baseUrl, @Nonnull String tableEntity, @Nonnull String recordId, @Nonnull String username, @Nonnull String password) throws OpenbravoClientException {
-        try (RestService restService = RestService.getInstance()) {
+    public Map<String, Object> delete(@Nonnull String tableEntity, @Nonnull String recordId) throws OpenbravoClientException {
+        return delete(tableEntity, recordId, false);
+    }
+
+    public Map<String, Object> delete(@Nonnull String tableEntity, @Nonnull String recordId, boolean noFilterActive) throws OpenbravoClientException {
+        try (RestService restService = new RestService()) {
 
             restService.setIgnoreCertificate(ignoreCertificateError);
 
@@ -105,16 +114,20 @@ public class OpenbravoService {
         }
     }
 
-    public <T> Optional<T> get(Class<T> clazz, @Nonnull String baseUrl, @Nonnull String username, @Nonnull String password, @Nonnull String primaryKey) throws OpenbravoClientException {
-        return Arrays.stream(get(clazz, baseUrl, username, password, Collections.singletonMap("id", primaryKey)))
+    public <T> Optional<T> get(Class<T> clazz, @Nonnull String primaryKey) throws OpenbravoClientException {
+        return Arrays.stream(get(clazz, Collections.singletonMap("id", primaryKey)))
                 .map(o -> (T) o)
                 .findFirst();
     }
 
+    @Nonnull
+    public Map<String, Object> get(@Nonnull String tableEntity, @Nonnull String recordId) throws OpenbravoClientException {
+        return get(tableEntity, recordId, false);
+    }
 
     @Nonnull
-    public Map<String, Object> get(@Nonnull String baseUrl, @Nonnull String tableEntity, @Nonnull String username, @Nonnull String password, @Nonnull String recordId) throws OpenbravoClientException {
-        try (RestService restService = RestService.getInstance()) {
+    public Map<String, Object> get(@Nonnull String tableEntity, @Nonnull String recordId, boolean noFilterActive) throws OpenbravoClientException {
+        try (RestService restService = new RestService()) {
 
             restService.setIgnoreCertificate(ignoreCertificateError);
 
@@ -165,21 +178,18 @@ public class OpenbravoService {
         }
     }
 
-    public <T> Object[] get(Class<T> clazz, @Nonnull String baseUrl, @Nonnull String username, @Nonnull String password, Map<String, String> filter) throws OpenbravoClientException {
+    public <T> Object[] get(Class<T> clazz, Map<String, String> filter) throws OpenbravoClientException {
         final String where = getFilterWhereCondition(filter);
-        return get(clazz, baseUrl, username, password, where, null, null, null, null, null);
+        return get(clazz, where, null, null, null, null, null);
     }
 
-    public Map<String, Object>[] get(@Nonnull String baseUrl, @Nonnull String tableEntity, @Nonnull String username, @Nonnull String password, Map<String, String> filter) throws OpenbravoClientException {
+    public Map<String, Object>[] get(@Nonnull String tableEntity, Map<String, String> filter) throws OpenbravoClientException {
         final String where = getFilterWhereCondition(filter);
-        return get(baseUrl, tableEntity, username, password, null, where, null, null, null, null, null);
+        return get(tableEntity, null, where, null, null, null, null, null);
     }
 
     /**
      * @param clazz
-     * @param baseUrl
-     * @param username
-     * @param password
      * @param condition
      * @param arguments
      * @param sort
@@ -190,10 +200,10 @@ public class OpenbravoService {
      * @return arrays of T[]
      * @throws OpenbravoClientException
      */
-    public <T> Object[] get(@Nonnull Class<T> clazz, @Nonnull String baseUrl, @Nonnull String username, @Nonnull String password, @Nullable String condition, Object[] arguments, @Nullable String sort, @Nullable Boolean desc, @Nullable Integer startRow, @Nullable Integer endRow) throws OpenbravoClientException {
+    public <T> Object[] get(@Nonnull Class<T> clazz, @Nullable String condition, Object[] arguments, @Nullable String sort, @Nullable Boolean desc, @Nullable Integer startRow, @Nullable Integer endRow) throws OpenbravoClientException {
         final String tableEntity = getTableEntity(clazz);
         final String[] fields = getFields(clazz);
-        final Map<String, Object>[] records = get(baseUrl, tableEntity, username, password, fields, condition, arguments, sort, desc, startRow, endRow);
+        final Map<String, Object>[] records = get(tableEntity, fields, condition, arguments, sort, desc, startRow, endRow);
 
         return Arrays.stream(records)
                 .map(Try.onFunction(m -> {
@@ -231,11 +241,12 @@ public class OpenbravoService {
                 .toArray();
     }
 
+    public Map<String, Object>[] get(@Nonnull String tableEntity, @Nullable String[] fields, @Nullable String condition, Object[] arguments, @Nullable String sort, @Nullable Boolean desc, @Nullable Integer startRow, @Nullable Integer endRow) throws OpenbravoClientException {
+        return get(tableEntity, fields, condition, arguments, sort, desc, startRow, endRow, false);
+    }
+
     /**
-     * @param baseUrl
      * @param tableEntity
-     * @param username
-     * @param password
      * @param fields
      * @param condition
      * @param arguments
@@ -246,10 +257,10 @@ public class OpenbravoService {
      * @return
      * @throws OpenbravoClientException
      */
-    public Map<String, Object>[] get(@Nonnull String baseUrl, @Nonnull String tableEntity, @Nonnull String username, @Nonnull String password, @Nullable String[] fields, @Nullable String condition, Object[] arguments, @Nullable String sort, @Nullable Boolean desc, @Nullable Integer startRow, @Nullable Integer endRow) throws OpenbravoClientException {
+    public Map<String, Object>[] get(@Nonnull String tableEntity, @Nullable String[] fields, @Nullable String condition, Object[] arguments, @Nullable String sort, @Nullable Boolean desc, @Nullable Integer startRow, @Nullable Integer endRow, boolean noFilterActive) throws OpenbravoClientException {
         logger.info("get : baseUrl [" + baseUrl + "] tableEntity [" + tableEntity + "] username [" + username + "]");
 
-        try (RestService restService = RestService.getInstance()) {
+        try (RestService restService = new RestService()) {
 
             restService.setIgnoreCertificate(ignoreCertificateError);
 
@@ -357,8 +368,8 @@ public class OpenbravoService {
         return String.format(sb.toString(), args.toArray(new Object[0]));
     }
 
-    public synchronized Map<String, Object>[] post(@Nonnull String baseUrl, @Nonnull String tableEntity, @Nonnull String username, @Nonnull String password, @Nonnull Map<String, Object>[] rows) throws OpenbravoClientException {
-        try (RestService restService = RestService.getInstance()) {
+    public synchronized Map<String, Object>[] post(@Nonnull String tableEntity, @Nonnull Map<String, Object>[] rows) throws OpenbravoClientException {
+        try (RestService restService = new RestService()) {
 
             restService.setIgnoreCertificate(ignoreCertificateError);
 
@@ -455,18 +466,6 @@ public class OpenbravoService {
         url.append(String.format("%s%s=%s", (url.toString().contains("?") ? "&" : "?"), parameterName, parameterValue));
     }
 
-    public void setIgnoreCertificateError(boolean ignoreCertificateError) {
-        this.ignoreCertificateError = ignoreCertificateError;
-    }
-
-    public void setShortCircuit(boolean shortCircuit) {
-        this.shortCircuit = shortCircuit;
-    }
-
-    public void setNoFilterActive(boolean noFilterActive) {
-        this.noFilterActive = noFilterActive;
-    }
-
     protected String getFilterWhereCondition(Map<String, String> filter) {
         return Optional.ofNullable(filter)
                 .map(Map::entrySet)
@@ -503,5 +502,4 @@ public class OpenbravoService {
                 .map(s -> s.replaceAll("\\$.*$", ""))
                 .toArray(String[]::new);
     }
-
 }
